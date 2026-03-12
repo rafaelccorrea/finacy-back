@@ -15,6 +15,15 @@ import { User } from '../users/entities/user.entity';
 export class SubscriptionsController {
   constructor(private readonly subscriptionsService: SubscriptionsService) {}
 
+  // ─── Rotas estáticas ANTES de :id para evitar conflito ───────────────────
+
+  @Get('dashboard')
+  @Permissions(Permission.DASHBOARD_VIEW)
+  @ApiOperation({ summary: 'Estatísticas para o dashboard' })
+  getDashboardStats(@CurrentUser() user: User) {
+    return this.subscriptionsService.getDashboardStats(user.id);
+  }
+
   @Get('current')
   @Permissions(Permission.SUBSCRIPTIONS_VIEW)
   @ApiOperation({ summary: 'Assinatura ativa do usuário' })
@@ -29,17 +38,12 @@ export class SubscriptionsController {
     return this.subscriptionsService.getUserSubscriptionHistory(user.id);
   }
 
+  // ─── Rota dinâmica DEPOIS das estáticas ──────────────────────────────────
+
   @Get(':id')
   @Permissions(Permission.SUBSCRIPTIONS_VIEW)
   @ApiOperation({ summary: 'Detalhes de uma assinatura' })
   getOne(@CurrentUser() user: User, @Param('id') id: string) {
     return this.subscriptionsService.getSubscriptionById(id, user.id);
-  }
-
-  @Get('stats/dashboard')
-  @Permissions(Permission.DASHBOARD_VIEW)
-  @ApiOperation({ summary: 'Estatísticas para o dashboard' })
-  getDashboardStats(@CurrentUser() user: User) {
-    return this.subscriptionsService.getDashboardStats(user.id);
   }
 }
