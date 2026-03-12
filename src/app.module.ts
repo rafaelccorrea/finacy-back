@@ -10,6 +10,7 @@ import { PlansModule } from './modules/plans/plans.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { CleanNameModule } from './modules/clean-name/clean-name.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -92,6 +93,7 @@ import databaseConfig from './config/database.config';
     SubscriptionsModule,
     PaymentsModule,
     CleanNameModule,
+    DocumentsModule,
   ],
   providers: [
     {
