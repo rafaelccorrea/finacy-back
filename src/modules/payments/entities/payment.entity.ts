@@ -7,7 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { PaymentStatus, PaymentMethod } from '../../../common/enums';
+import { PaymentStatus, PaymentMethod, PaymentType } from '../../../common/enums';
 import { User } from '../../users/entities/user.entity';
 import { Subscription } from '../../subscriptions/entities/subscription.entity';
 
@@ -21,6 +21,16 @@ export class Payment {
 
   @Column({ nullable: true })
   subscriptionId: string;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentType,
+    default: PaymentType.SUBSCRIPTION,
+  })
+  paymentType: PaymentType;
+
+  @Column({ type: 'int', nullable: true })
+  creditsAmount: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;
