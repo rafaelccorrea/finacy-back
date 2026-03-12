@@ -56,6 +56,12 @@ export class User {
   @Column({ nullable: true })
   stripeCustomerId: string;
 
+  @Column({ type: 'int', default: 0 })
+  cleanNameCredits: number;
+
+  @Column({ type: 'int', default: 0 })
+  cleanNameCreditsUsed: number;
+
   @Column({ default: false })
   emailVerified: boolean;
 

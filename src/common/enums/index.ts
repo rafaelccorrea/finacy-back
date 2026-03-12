@@ -47,6 +47,16 @@ export enum CleanNameRequestStatus {
   FAILED = 'failed',
 }
 
+export enum CreditPackageStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+}
+
+export enum PaymentType {
+  SUBSCRIPTION = 'subscription',
+  CREDIT_PURCHASE = 'credit_purchase',
+}
+
 export enum DocumentStatus {
   PENDING = 'pending',
   SIGNED = 'signed',
