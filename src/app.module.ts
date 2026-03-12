@@ -28,21 +28,50 @@ import databaseConfig from './config/database.config';
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 5432),
-        username: configService.get<string>('DB_USERNAME', 'finacy_user'),
-        password: configService.get<string>('DB_PASSWORD', 'finacy_password'),
-        database: configService.get<string>('DB_NAME', 'finacy_db'),
-        ssl: configService.get<string>('DB_SSL') === 'true'
-          ? { rejectUnauthorized: false }
-          : false,
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: configService.get<string>('NODE_ENV') !== 'production',
-        logging: configService.get<string>('NODE_ENV') === 'development',
-        autoLoadEntities: true,
-      }),
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+        const isProduction = configService.get<string>('NODE_ENV') === 'production';
+
+        // Supabase / URL direta
+        if (databaseUrl) {
+          return {
+            type: 'postgres' as const,
+            url: databaseUrl,
+            ssl: { rejectUnauthorized: false },
+            entities: [__dirname + '/**/*.entity{.ts,.js}'],
+            synchronize: !isProduction,
+            logging: !isProduction,
+            autoLoadEntities: true,
+            extra: {
+              max: 10,
+              idleTimeoutMillis: 30000,
+              connectionTimeoutMillis: 10000,
+            },
+          };
+        }
+
+        // Fallback: variáveis individuais
+        return {
+          type: 'postgres' as const,
+          host: configService.get<string>('DB_HOST', 'localhost'),
+          port: configService.get<number>('DB_PORT', 5432),
+          username: configService.get<string>('DB_USERNAME', 'finacy_user'),
+          password: configService.get<string>('DB_PASSWORD', 'finacy_password'),
+          database: configService.get<string>('DB_NAME', 'finacy_db'),
+          ssl: configService.get<string>('DB_SSL') === 'true'
+            ? { rejectUnauthorized: false }
+            : false,
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: !isProduction,
+          logging: !isProduction,
+          autoLoadEntities: true,
+          extra: {
+            max: 10,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 10000,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
 
