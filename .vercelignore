@@ -1,0 +1,14 @@
+# Ignorar arquivos desnecessários no deploy
+node_modules
+.git
+.env
+.env.*
+!.env.example
+*.log
+coverage
+.nyc_output
+.vscode
+.idea
+test
+*.spec.ts
+*.test.ts
