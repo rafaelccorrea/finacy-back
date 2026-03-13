@@ -14,7 +14,14 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
   const frontendUrl = configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
-  const corsOrigins = configService.get<string>('CORS_ORIGINS', frontendUrl).split(',');
+  const corsFromEnv = configService.get<string>('CORS_ORIGINS', frontendUrl).split(',').map((o) => o.trim());
+  const corsOrigins = [
+    ...new Set([
+      ...corsFromEnv,
+      'https://grey-penguin-269757.hostingersite.com',
+      'http://localhost:5173',
+    ]),
+  ];
 
   // Security Headers
   app.use(
