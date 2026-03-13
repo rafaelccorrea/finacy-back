@@ -13,16 +13,6 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
-  const frontendUrl = configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
-  const corsFromEnv = configService.get<string>('CORS_ORIGINS', frontendUrl).split(',').map((o) => o.trim());
-  const corsOrigins = [
-    ...new Set([
-      ...corsFromEnv,
-      'https://grey-penguin-269757.hostingersite.com',
-      'http://localhost:5173',
-    ]),
-  ];
-
   // Security Headers
   app.use(
     helmet({
@@ -38,9 +28,9 @@ async function bootstrap() {
     }),
   );
 
-  // CORS
+  // CORS - origin: true reflete a origem da requisição (permite qualquer frontend)
   app.enableCors({
-    origin: corsOrigins,
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'stripe-signature'],
     credentials: true,
