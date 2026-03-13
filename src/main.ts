@@ -13,18 +13,12 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
-  // Security Headers
+  // Security Headers (crossOriginResourcePolicy: cross-origin para permitir CORS do frontend)
   app.use(
     helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", 'data:', 'https:'],
-          scriptSrc: ["'self'"],
-        },
-      },
+      contentSecurityPolicy: false,
       crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
 
