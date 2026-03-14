@@ -60,8 +60,8 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Obter dados do usuário autenticado' })
+  @ApiOperation({ summary: 'Obter dados do usuario autenticado com status de assinatura' })
   async getMe(@CurrentUser() user: User) {
-    return user;
+    return this.authService.getMe(user.id);
   }
 }
