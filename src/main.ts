@@ -13,6 +13,7 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
+
   // Security Headers (crossOriginResourcePolicy: cross-origin para permitir CORS do frontend)
   app.use(
     helmet({
@@ -22,9 +23,26 @@ async function bootstrap() {
     }),
   );
 
-  // CORS - origin: true reflete a origem da requisição (permite qualquer frontend)
+  // CORS - lê origens permitidas da variável de ambiente CORS_ORIGINS
+  const corsOriginsEnv = configService.get<string>('CORS_ORIGINS', '');
+  const allowedOrigins: string[] = corsOriginsEnv
+    ? corsOriginsEnv.split(',').map((o) => o.trim()).filter(Boolean)
+    : [];
+
   app.enableCors({
-    origin: true,
+    origin: (origin, callback) => {
+      // Permite requisições sem origin (ex: Postman, mobile apps, SSR)
+      if (!origin) return callback(null, true);
+
+      // Se não houver origens configuradas, permite todas (fallback de desenvolvimento)
+      if (allowedOrigins.length === 0) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS: origem não permitida — ${origin}`), false);
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'stripe-signature'],
     credentials: true,
@@ -71,6 +89,7 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`🚀 Finacy API rodando em http://localhost:${port}/api/v1`);
   console.log(`📚 Swagger disponível em http://localhost:${port}/api/docs`);
+  console.log(`🔒 CORS origens permitidas: ${allowedOrigins.length > 0 ? allowedOrigins.join(', ') : 'todas (fallback)'}`);
 }
 
 bootstrap();
