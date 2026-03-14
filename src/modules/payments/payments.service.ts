@@ -71,10 +71,15 @@ export class PaymentsService {
     const plan = await this.planRepository.findOne({ where: { id: planId } });
     if (!plan || !plan.isActive) throw new NotFoundException('Plano não encontrado ou inativo');
 
-    const customerId = await this.createOrGetStripeCustomer(user);
+    // PIX não é suportado pelo Stripe para assinaturas recorrentes (mode: 'subscription').
+    // O Stripe aceita apenas cartão de crédito/débito para cobranças recorrentes.
+    if (paymentMethod === 'pix') {
+      throw new BadRequestException(
+        'PIX não está disponível para assinaturas recorrentes. Por favor, utilize cartão de crédito.',
+      );
+    }
 
-    const paymentMethodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] =
-      paymentMethod === 'pix' ? ['pix'] : ['card'];
+    const customerId = await this.createOrGetStripeCustomer(user);
 
     const interval = (plan.interval === 'yearly' ? 'year' : 'month') as 'month' | 'year';
     const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = plan.stripePriceId
@@ -96,7 +101,8 @@ export class PaymentsService {
     const session = await this.stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
-      payment_method_types: paymentMethodTypes,
+      // Apenas cartão para assinaturas recorrentes (PIX não suportado pelo Stripe neste modo)
+      payment_method_types: ['card'],
       line_items: [lineItem],
       success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}&type=subscription`,
       cancel_url: cancelUrl,
@@ -148,9 +154,24 @@ export class PaymentsService {
       };
     }
 
+    // Configuração adicional para PIX: expiração do QR Code em 1 hora
+    // Nota: payment_method_options.pix é configurado via payment_intent_data com cast any
+    const pixOptions: Record<string, any> =
+      paymentMethod === 'pix'
+        ? {
+            payment_intent_data: {
+              payment_method_options: {
+                pix: { expires_after_seconds: 3600 },
+              },
+            },
+          }
+        : {};
+
     const session = await this.stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'payment',
+      // PIX é suportado apenas para pagamentos únicos (mode: 'payment')
+      // Requer conta Stripe configurada para o Brasil (BR)
       payment_method_types: paymentMethodTypes,
       line_items: [lineItem],
       success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}&type=credits`,
@@ -162,6 +183,7 @@ export class PaymentsService {
         type: 'credit_purchase',
       },
       locale: 'pt-BR',
+      ...pixOptions,
     });
 
     // Registrar pagamento pendente
