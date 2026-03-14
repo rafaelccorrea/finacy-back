@@ -70,18 +70,34 @@ export class PaymentsService {
 
     const plan = await this.planRepository.findOne({ where: { id: planId } });
     if (!plan || !plan.isActive) throw new NotFoundException('Plano não encontrado ou inativo');
-    if (!plan.stripePriceId) throw new BadRequestException('Plano sem preço Stripe configurado');
 
     const customerId = await this.createOrGetStripeCustomer(user);
 
     const paymentMethodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] =
       paymentMethod === 'pix' ? ['pix'] : ['card'];
 
+    const interval = (plan.interval === 'yearly' ? 'year' : 'month') as 'month' | 'year';
+    const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = plan.stripePriceId
+      ? { price: plan.stripePriceId, quantity: 1 }
+      : {
+          price_data: {
+            currency: 'brl',
+            product_data: {
+              name: plan.name,
+              description: plan.description || `${plan.cleanNameCredits} créditos Limpa Nome`,
+              metadata: { planId },
+            },
+            unit_amount: Math.round(Number(plan.price) * 100),
+            recurring: { interval },
+          },
+          quantity: 1,
+        };
+
     const session = await this.stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       payment_method_types: paymentMethodTypes,
-      line_items: [{ price: plan.stripePriceId, quantity: 1 }],
+      line_items: [lineItem],
       success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}&type=subscription`,
       cancel_url: cancelUrl,
       metadata: { userId, planId, type: 'subscription' },
