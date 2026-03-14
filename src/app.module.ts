@@ -12,6 +12,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { CleanNameModule } from './modules/clean-name/clean-name.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { CreditPackagesModule } from './modules/credit-packages/credit-packages.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -96,6 +97,7 @@ import databaseConfig from './config/database.config';
     CleanNameModule,
     DocumentsModule,
     CreditPackagesModule,
+    AdminModule,
   ],
   providers: [
     {
