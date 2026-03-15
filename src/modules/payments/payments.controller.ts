@@ -166,8 +166,21 @@ export class PaymentsController {
     @Req() req: any,
     @Headers('stripe-signature') signature: string,
   ) {
-    const rawBody = req.rawBody as Buffer | undefined;
-    if (!rawBody) return { received: false, error: 'No raw body' };
+    // Obter o raw body de múltiplas formas para compatibilidade com Vercel/serverless:
+    // 1. req.rawBody (NestJS rawBody: true)
+    // 2. req.body como Buffer (quando express.raw() está configurado no main.ts)
+    // 3. req.body como string
+    let rawBody: Buffer | undefined;
+    if (req.rawBody && Buffer.isBuffer(req.rawBody)) {
+      rawBody = req.rawBody;
+    } else if (req.body && Buffer.isBuffer(req.body)) {
+      rawBody = req.body;
+    } else if (req.body && typeof req.body === 'string') {
+      rawBody = Buffer.from(req.body, 'utf8');
+    }
+    if (!rawBody) {
+      return { received: false, error: 'No raw body available' };
+    }
     return this.paymentsService.handleWebhook(rawBody, signature);
   }
 }
