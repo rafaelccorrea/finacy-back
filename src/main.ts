@@ -3,13 +3,25 @@ import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import * as express from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
+    bodyParser: false, // Desabilitar body parser global para configurar manualmente
     logger: ['error', 'warn', 'log'],
   });
+
+  // ─── Body Parsers ───────────────────────────────────────────────────────────
+  // IMPORTANTE: A rota do webhook Stripe precisa receber o body RAW (Buffer)
+  // para que a verificação de assinatura funcione corretamente.
+  // O express.raw() deve ser registrado ANTES do express.json().
+  app.use('/api/v1/payments/webhook', express.raw({ type: '*/*', limit: '10mb' }));
+
+  // JSON parser para todas as outras rotas
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
