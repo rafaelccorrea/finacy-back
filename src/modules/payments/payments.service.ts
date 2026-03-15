@@ -221,24 +221,36 @@ export class PaymentsService {
 
     this.logger.log(`Webhook recebido: ${event.type}`);
 
-    switch (event.type) {
-      case 'checkout.session.completed':
-        await this.handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
-        break;
-      case 'invoice.payment_succeeded':
-        await this.handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice);
-        break;
-      case 'invoice.payment_failed':
-        await this.handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
-        break;
-      case 'customer.subscription.deleted':
-        await this.handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
-        break;
-      case 'customer.subscription.updated':
-        await this.handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
-        break;
-      default:
-        this.logger.debug(`Evento não tratado: ${event.type}`);
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+          await this.handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+          break;
+        case 'invoice.payment_succeeded':
+          await this.handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice);
+          break;
+        case 'invoice.payment_failed':
+          await this.handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
+          break;
+        case 'customer.subscription.deleted':
+          await this.handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+          break;
+        case 'customer.subscription.updated':
+          await this.handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+          break;
+        default:
+          this.logger.debug(`Evento não tratado: ${event.type}`);
+      }
+    } catch (err) {
+      // Logar o erro completo para diagnóstico
+      // Retornamos 200 para evitar retentativas infinitas do Stripe em erros de lógica
+      this.logger.error(
+        `[WEBHOOK ERROR] Falha ao processar ${event.type}: ${err.message}`,
+        err.stack,
+      );
+      this.logger.error(
+        `[WEBHOOK ERROR] Dados do evento: ${JSON.stringify((event.data.object as any)?.metadata || {})}`,
+      );
     }
 
     return { received: true };
