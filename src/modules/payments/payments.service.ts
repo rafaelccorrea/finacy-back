@@ -287,29 +287,34 @@ export class PaymentsService {
         this.logger.warn(`Não foi possível recuperar detalhes da subscription: ${err.message}`);
       }
 
-      const subscription = this.subscriptionRepository.create({
-        userId,
-        planId,
-        stripeSubscriptionId,
-        stripeCustomerId,
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodStart: periodStart,
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: false,
-        cleanNameCreditsTotal: plan?.cleanNameCredits || 0,
-        cleanNameCreditsUsed: 0,
-      });
-
-      await this.subscriptionRepository.save(subscription);
-      this.logger.log(`Assinatura criada no banco para usuário ${userId}, plano ${plan?.name || planId}`);
-
-      // Atualizar créditos do usuário
-      if (plan && plan.cleanNameCredits > 0) {
-        await this.userRepository.update(userId, {
-          cleanNameCredits: plan.cleanNameCredits,
+      try {
+        const subscription = this.subscriptionRepository.create({
+          userId,
+          planId,
+          stripeSubscriptionId,
+          stripeCustomerId,
+          status: SubscriptionStatus.ACTIVE,
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+          // cancelAtPeriodEnd é timestamp no banco — omitir para usar null por padrão
+          cleanNameCreditsTotal: plan?.cleanNameCredits || 0,
           cleanNameCreditsUsed: 0,
         });
-        this.logger.log(`${plan.cleanNameCredits} créditos atribuídos ao usuário ${userId}`);
+
+        await this.subscriptionRepository.save(subscription);
+        this.logger.log(`Assinatura criada no banco para usuário ${userId}, plano ${plan?.name || planId}`);
+
+        // Atualizar créditos do usuário
+        if (plan && plan.cleanNameCredits > 0) {
+          await this.userRepository.update(userId, {
+            cleanNameCredits: plan.cleanNameCredits,
+            cleanNameCreditsUsed: 0,
+          });
+          this.logger.log(`${plan.cleanNameCredits} créditos atribuídos ao usuário ${userId}`);
+        }
+      } catch (err) {
+        this.logger.error(`Erro ao salvar assinatura no banco: ${err.message}`, err.stack);
+        throw err; // Re-throw para o Stripe receber 500 e retentar
       }
     }
   }
