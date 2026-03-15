@@ -104,7 +104,7 @@ export class PaymentsService {
       // Apenas cartão para assinaturas recorrentes (PIX não suportado pelo Stripe neste modo)
       payment_method_types: ['card'],
       line_items: [lineItem],
-      success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}&type=subscription`,
+      success_url: `${successUrl}${successUrl.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}&type=subscription`,
       cancel_url: cancelUrl,
       metadata: { userId, planId, type: 'subscription' },
       subscription_data: {
@@ -174,7 +174,7 @@ export class PaymentsService {
       // Requer conta Stripe configurada para o Brasil (BR)
       payment_method_types: paymentMethodTypes,
       line_items: [lineItem],
-      success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}&type=credits`,
+      success_url: `${successUrl}${successUrl.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}&type=credits`,
       cancel_url: cancelUrl,
       metadata: {
         userId,
