@@ -245,28 +245,101 @@ export class PaymentsService {
   }
 
   private async handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
-    const { userId, packageId, credits, type } = session.metadata || {};
+    const { userId, packageId, credits, type, planId } = session.metadata || {};
 
+    this.logger.log(`handleCheckoutCompleted: type=${type} userId=${userId} planId=${planId} packageId=${packageId}`);
+
+    // ── Compra de créditos avulsos ──────────────────────────────────────────────
     if (type === 'credit_purchase' && userId && packageId && credits) {
       await this.userRepository.increment({ id: userId }, 'cleanNameCredits', parseInt(credits));
-
-      await this.paymentRepository.update(
-        { metadata: { sessionId: session.id } as any },
-        { status: PaymentStatus.SUCCEEDED, paidAt: new Date() },
-      );
-
       this.logger.log(`${credits} créditos adicionados ao usuário ${userId}`);
+      return;
+    }
+
+    // ── Assinatura: criar registro no banco imediatamente ──────────────────────
+    // O evento checkout.session.completed é o mais confiável para criar a assinatura
+    // pois contém userId e planId nos metadados da session.
+    // Não dependemos de invoice.payment_succeeded para a criação inicial.
+    if (type === 'subscription' && userId && planId && session.subscription) {
+      const stripeSubscriptionId = session.subscription as string;
+      const stripeCustomerId = session.customer as string;
+
+      // Verificar se já existe (evitar duplicata)
+      const existing = await this.subscriptionRepository.findOne({
+        where: { stripeSubscriptionId },
+      });
+      if (existing) {
+        this.logger.log(`Assinatura ${stripeSubscriptionId} já existe no banco, ignorando`);
+        return;
+      }
+
+      const plan = await this.planRepository.findOne({ where: { id: planId } });
+
+      // Buscar detalhes da subscription no Stripe para obter datas do período
+      let periodStart = new Date();
+      let periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // fallback: +30 dias
+      try {
+        const stripeSubscription = await this.stripe.subscriptions.retrieve(stripeSubscriptionId);
+        const sub = stripeSubscription as any;
+        periodStart = new Date(sub.current_period_start * 1000);
+        periodEnd = new Date(sub.current_period_end * 1000);
+      } catch (err) {
+        this.logger.warn(`Não foi possível recuperar detalhes da subscription: ${err.message}`);
+      }
+
+      const subscription = this.subscriptionRepository.create({
+        userId,
+        planId,
+        stripeSubscriptionId,
+        stripeCustomerId,
+        status: SubscriptionStatus.ACTIVE,
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        cancelAtPeriodEnd: false,
+        cleanNameCreditsTotal: plan?.cleanNameCredits || 0,
+        cleanNameCreditsUsed: 0,
+      });
+
+      await this.subscriptionRepository.save(subscription);
+      this.logger.log(`Assinatura criada no banco para usuário ${userId}, plano ${plan?.name || planId}`);
+
+      // Atualizar créditos do usuário
+      if (plan && plan.cleanNameCredits > 0) {
+        await this.userRepository.update(userId, {
+          cleanNameCredits: plan.cleanNameCredits,
+          cleanNameCreditsUsed: 0,
+        });
+        this.logger.log(`${plan.cleanNameCredits} créditos atribuídos ao usuário ${userId}`);
+      }
     }
   }
 
   private async handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
     const stripeSubscriptionId = (invoice as any).subscription as string;
-    if (!stripeSubscriptionId) return;
+    if (!stripeSubscriptionId) {
+      this.logger.warn('invoice.payment_succeeded sem subscription ID, ignorando');
+      return;
+    }
 
     const stripeSubscription = await this.stripe.subscriptions.retrieve(stripeSubscriptionId);
-    const userId = stripeSubscription.metadata?.userId;
-    const planId = stripeSubscription.metadata?.planId;
-    if (!userId || !planId) return;
+    let userId = stripeSubscription.metadata?.userId;
+    let planId = stripeSubscription.metadata?.planId;
+
+    // Fallback: buscar pelo stripeSubscriptionId no banco se metadados estiverem vazios
+    if (!userId || !planId) {
+      this.logger.warn(`Metadados ausentes na subscription ${stripeSubscriptionId}, buscando no banco...`);
+      const existingSub = await this.subscriptionRepository.findOne({
+        where: { stripeSubscriptionId },
+      });
+      if (existingSub) {
+        userId = existingSub.userId;
+        planId = existingSub.planId;
+        this.logger.log(`Dados recuperados do banco: userId=${userId} planId=${planId}`);
+      } else {
+        this.logger.warn(`Subscription ${stripeSubscriptionId} não encontrada no banco e sem metadados. Ignorando.`);
+        return;
+      }
+    }
 
     const plan = await this.planRepository.findOne({ where: { id: planId } });
     const sub = stripeSubscription as any;
